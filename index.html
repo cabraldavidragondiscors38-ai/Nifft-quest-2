@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#14121d">
+<title>Nifft Quest</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root {
+--bg-dark: #14121d;
+--panel-bg: #2b1d16;
+--panel-border: #e0a83b;
+--gold-light: #ffd54f;
+}
+
+/* Reset global e estética pixelada */
+* {
+box-sizing: border-box;
+user-select: none;
+-webkit-user-select: none;
+image-rendering: pixelated;
+font-family: 'Press Start 2P', monospace;
+}
+
+html, body {
+margin: 0;
+padding: 0;
+width: 100%;
+height: 100%;
+background-color: var(--bg-dark);
+color: #fff8e7;
+overflow: hidden;
+}
+
+.hidden {
+display: none !important;
+}
+
+/* Contêiner principal no modo paisagem */
+#landscape-root {
+position: fixed;
+inset: 0;
+width: 100vw;
+height: 100dvh;
+overflow-y: auto;
+overflow-x: hidden;
+-webkit-overflow-scrolling: touch;
+background-color: var(--bg-dark);
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+align-items: center;
+}
+
+/* Aviso de rotação para modo retrato */
+#rotate-prompt {
+display: none;
+position: fixed;
+inset: 0;
+z-index: 999;
+background: rgba(20, 18, 29, 0.96);
+align-items: center;
+justify-content: center;
+padding: 20px;
+text-align: center;
+}
+
+@media screen and (orientation: portrait) {
+#rotate-prompt {
+display: flex;
+}
+}
+
+/* Canvas do cenário pixelado */
+#bg-canvas {
+position: fixed;
+inset: 0;
+width: 100%;
+height: 100%;
+display: block;
+z-index: 0;
+pointer-events: none;
+}
+
+.crt-overlay {
+position: fixed;
+inset: 0;
+background: radial-gradient(circle at center, transparent 60%, rgba(0, 0, 0, 0.38) 100%);
+pointer-events: none;
+z-index: 1;
+}
+
+.top-bar {
+position: relative;
+z-index: 20;
+width: 100%;
+max-width: 960px;
+padding: 12px 16px 0;
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 10px;
+font-size: 11px;
+}
+
+.main-screen {
+position: relative;
+z-index: 20;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+padding: 8px 16px;
+width: 100%;
+max-width: 640px;
+margin: auto;
+gap: 14px;
+}
+
+.title-block {
+text-align: center;
+}
+
+.game-title {
+margin: 0;
+font-size: clamp(24px, 6vw, 54px);
+line-height: 1.15;
+background: linear-gradient(180deg, #ffe066 0%, #f59f00 48%, #b85d19 52%, #7c360c 100%);
+background-clip: text;
+-webkit-background-clip: text;
+color: transparent;
+-webkit-text-fill-color: transparent;
+filter: drop-shadow(0px 4px 0px #1a0d06)
+drop-shadow(0px -2px 0px #1a0d06)
+drop-shadow(3px 0px 0px #1a0d06)
+drop-shadow(-3px 0px 0px #1a0d06)
+drop-shadow(0px 8px 12px rgba(0, 0, 0, 0.75));
+letter-spacing: 2px;
+animation: floatTitle 3s ease-in-out infinite;
+}
+
+.subtitle {
+margin: 6px 0 0;
+font-size: 9px;
+color: #fef3c7;
+letter-spacing: 1px;
+text-shadow: 0 2px 0 #000;
+}
+
+@keyframes floatTitle {
+0%, 100% { transform: translateY(0px); }
+50% { transform: translateY(-5px); }
+}
+
+.menu-nav {
+width: min(290px, 85vw);
+display: flex;
+flex-direction: column;
+gap: 10px;
+}
+
+.footer-note {
+position: relative;
+z-index: 20;
+padding: 0 16px 10px;
+text-align: center;
+font-size: 9px;
+color: rgba(254, 243, 199, 0.9);
+text-shadow: 0 2px 0 #000;
+}
+
+/* Painéis e botões estilo RPG */
+.rpg-panel {
+background-color: var(--panel-bg);
+border: 4px solid var(--panel-border);
+box-shadow:
+inset 0 0 0 4px #5c3621,
+0 0 0 4px #140c08,
+0 12px 28px rgba(0, 0, 0, 0.85);
+border-radius: 6px;
+}
+
+.rpg-btn {
+position: relative;
+z-index: 25;
+background: linear-gradient(180deg, #4a3222 0%, #2e1d13 100%);
+border: 3px solid #d49b35;
+box-shadow:
+inset 0 2px 0 #7a5438,
+0 4px 0 #140b07,
+0 6px 12px rgba(0, 0, 0, 0.6);
+color: #fff8e7;
+text-shadow: 2px 2px 0 #140b07;
+transition: transform 0.08s ease, filter 0.12s ease, border-color 0.12s ease;
+cursor: pointer;
+border-radius: 4px;
+touch-action: manipulation;
+}
+
+.rpg-btn:hover, .rpg-btn.active-focus {
+border-color: #ffe066;
+background: linear-gradient(180deg, #63432e 0%, #3d2619 100%);
+transform: translateY(-2px);
+color: #ffe066;
+}
+
+.rpg-btn:active {
+transform: translateY(2px);
+box-shadow:
+inset 0 2px 0 #3d2619,
+0 1px 0 #140b07;
+}
+
+.rpg-btn-danger {
+background: linear-gradient(180deg, #6b1d24 0%, #421015 100%);
+border-color: #c94a4a;
+}
+
+.rpg-btn-danger:hover {
+border-color: #ff8787;
+background: linear-gradient(180deg, #87252e 0%, #57151b 100%);
+color: #ffc9c9;
+}
+
+/* Modais e telas */
+.modal-backdrop {
+position: fixed;
+inset: 0;
+z-index: 60;
+background: rgba(0, 0, 0, 0.72);
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 14px;
+}
+
+.modal-backdrop-top {
+z-index: 75;
+background: rgba(0, 0, 0, 0.82);
+}
+
+.stage-backdrop {
+position: fixed;
+inset: 0;
+z-index: 80;
+background: #120e17;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 16px;
+}
+
+/* Sliders de volume */
+input[type="range"].rpg-slider {
+-webkit-appearance: none;
+appearance: none;
+width: 100%;
+height: 14px;
+background: #1a110d;
+border: 3px solid #8c5828;
+border-radius: 4px;
+outline: none;
+}
+
+input[type="range"].rpg-slider::-webkit-slider-thumb {
+-webkit-appearance: none;
+appearance: none;
+width: 20px;
+height: 24px;
+background: #ffd54f;
+border: 3px solid #1a0d06;
+border-radius: 3px;
+cursor: pointer;
+box-shadow: 0 2px 0 #8c4a12;
+}
+
+.modal-pop {
+animation: popIn 0.16s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes popIn {
+from { opacity: 0; transform: scale(0.92); }
+to { opacity: 1; transform: scale(1); }
+}
+</style>
+</head>
+<body>
+
+<div id="landscape-root">
+<canvas id="bg-canvas"></canvas>
+<div class="crt-overlay"></div>
+
+<header class="top-bar">
+<div class="rpg-panel" style="padding: 6px 10px; display: flex; align-items: center; gap: 8px;">
+<span style="display:inline-block; width:10px; height:10px; background:#fbbf24; border:1px solid #000;"></span>
+<span id="bg-badge" style="color:#fde68a;">CENARIO: VALE ENSOLARADO</span>
+</div>
+
+<button type="button" id="quick-audio-btn" class="rpg-btn" style="padding: 6px 10px; display:flex; align-items:center; gap:6px;" title="Ligar/Desligar Música">
+<span id="audio-status-icon">♪</span>
+<span id="audio-status-text">SOM: ON</span>
+</button>
+</header>
+
+<main id="main-menu-screen" class="main-screen">
+<div class="title-block">
+<h1 class="game-title">NIFFT QUEST</h1>
+<p class="subtitle">A LENDA DO CAVALEIRO ESCARLATE</p>
+</div>
+
+<nav id="main-nav" class="menu-nav">
+<button type="button" data-index="0" id="btn-play" class="rpg-btn active-focus" style="width:100%; padding:13px 16px; font-size:13px; display:flex; align-items:center; justify-content:center; gap:10px;">
+<span style="color:#fbbf24;">▶</span>
+<span>JOGAR</span>
+</button>
+
+<button type="button" data-index="1" id="btn-change-bg" class="rpg-btn" style="width:100%; padding:13px 16px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:10px;">
+<span style="color:#7dd3fc;">❖</span>
+<span>MUDAR FUNDO</span>
+</button>
+
+<button type="button" data-index="2" id="btn-settings" class="rpg-btn" style="width:100%; padding:13px 16px; font-size:12px; display:flex; align-items:center; justify-content:center; gap:10px;">
+<span style="color:#6ee7b7;">⚙</span>
+<span>CONFIGURAÇÕES</span>
+</button>
+</nav>
+</main>
+
+<footer class="footer-note">
+TOQUE NOS BOTÕES OU USE AS SETAS + ENTER
+</footer>
+</div>
+
+<!-- MODAL 1: 3 ESPAÇOS DE SAVE -->
+<section id="saves-modal" class="hidden modal-backdrop">
+<div class="rpg-panel modal-pop" style="width:100%; max-width:560px; padding:18px; display:flex; flex-direction:column; gap:12px; max-height:90dvh; overflow-y:auto;">
+<div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid rgba(180,83,9,0.6); padding-bottom:8px;">
+<h2 style="margin:0; font-size:14px; color:#fcd34d; text-shadow:0 2px 0 #000;">ESCOLHA SEU SAVE</h2>
+<span style="font-size:9px; color:rgba(254,243,199,0.75);">3 SLOTS</span>
+</div>
+
+<div id="slots-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+<div style="padding-top:4px; display:flex; justify-content:flex-end;">
+<button type="button" id="btn-close-saves" class="rpg-btn" style="padding:10px 14px; font-size:11px;">
+← VOLTAR
+</button>
+</div>
+</div>
+</section>
+
+<!-- MODAL 2: CONFIGURAÇÕES -->
+<section id="settings-modal" class="hidden modal-backdrop">
+<div class="rpg-panel modal-pop" style="width:100%; max-width:430px; padding:18px; display:flex; flex-direction:column; gap:14px; max-height:90dvh; overflow-y:auto;">
+<div style="border-bottom:2px solid rgba(180,83,9,0.6); padding-bottom:8px;">
+<h2 style="margin:0; font-size:14px; color:#fcd34d; text-shadow:0 2px 0 #000;">CONFIGURAÇÕES</h2>
+</div>
+
+<div style="display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.3); padding:12px; border-radius:4px; border:2px solid rgba(120,53,15,0.6);">
+<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+<label for="music-slider" style="color:#fef3c7;">♪ MÚSICA</label>
+<span id="music-value" style="color:#fcd34d;">70%</span>
+</div>
+<input id="music-slider" type="range" min="0" max="100" step="5" value="70" class="rpg-slider">
+</div>
+
+<div style="display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.3); padding:12px; border-radius:4px; border:2px solid rgba(120,53,15,0.6);">
+<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+<label for="sfx-slider" style="color:#fef3c7;">✦ EFEITOS (SFX)</label>
+<span id="sfx-value" style="color:#fcd34d;">80%</span>
+</div>
+<input id="sfx-slider" type="range" min="0" max="100" step="5" value="80" class="rpg-slider">
+</div>
+
+<div style="padding-top:4px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+<button type="button" id="btn-test-sfx" class="rpg-btn" style="padding:10px 12px; font-size:10px;">
+TESTAR SOM
+</button>
+<button type="button" id="btn-close-settings" class="rpg-btn" style="padding:10px 14px; font-size:10px;">
+SALVAR E VOLTAR
+</button>
+</div>
+</div>
+</section>
+
+<!-- MODAL 3: CONFIRMAR EXCLUSÃO -->
+<section id="confirm-delete-modal" class="hidden modal-backdrop modal-backdrop-top">
+<div class="rpg-panel modal-pop" style="width:100%; max-width:340px; padding:18px; display:flex; flex-direction:column; gap:14px; text-align:center;">
+<h3 style="margin:0; font-size:13px; color:#f87171;">APAGAR SAVE?</h3>
+<p id="confirm-delete-text" style="margin:0; font-size:10px; line-height:1.6; color:#fef3c7;">
+Deseja mesmo apagar o progresso deste slot?
+</p>
+<div style="display:flex; justify-content:center; gap:12px; padding-top:4px;">
+<button type="button" id="btn-cancel-delete" class="rpg-btn" style="padding:10px 14px; font-size:10px;">NÃO</button>
+<button type="button" id="btn-confirm-delete" class="rpg-btn rpg-btn-danger" style="padding:10px 14px; font-size:10px;">SIM, APAGAR</button>
+</div>
+</div>
+</section>
+
+<!-- TELA DA FASE 1 -->
+<section id="stage-preview-screen" class="hidden stage-backdrop">
+<div class="rpg-panel modal-pop" style="max-width:560px; width:100%; padding:20px; display:flex; flex-direction:row; align-items:center; gap:18px;">
+<div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex-shrink:0;">
+<canvas id="hero-preview-canvas" width="96" height="96" style="width:88px; height:88px; background:rgba(0,0,0,0.4); border:2px solid #b45309; border-radius:4px;"></canvas>
+<span style="font-size:9px; color:#fcd34d;" id="loaded-slot-title">SLOT 1</span>
+</div>
+
+<div style="display:flex; flex-direction:column; gap:10px; flex:1; text-align:left;">
+<div style="width:100%; background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; border:1px solid rgba(146,64,14,0.7); font-size:10px; display:flex; flex-direction:column; gap:6px;">
+<div style="display:flex; justify-content:space-between;">
+<span style="color:rgba(254,243,199,0.8);">HERÓI:</span>
+<span id="preview-hero-name" style="color:#fff;">CAVALEIRO</span>
+</div>
+<div style="display:flex; justify-content:space-between;">
+<span style="color:rgba(254,243,199,0.8);">VIDA:</span>
+<span id="preview-hero-hp" style="color:#fb7185;">100 / 100</span>
+</div>
+<div style="display:flex; justify-content:space-between;">
+<span style="color:rgba(254,243,199,0.8);">MOEDAS:</span>
+<span id="preview-hero-coins" style="color:#fde047;">0</span>
+</div>
+<div style="display:flex; justify-content:space-between;">
+<span style="color:rgba(254,243,199,0.8);">LOCAL:</span>
+<span id="preview-hero-stage" style="color:#6ee7b7;">FASE 1 - CLAREIRA</span>
+</div>
+</div>
+
+<p style="margin:0; font-size:9px; color:rgba(254,243,199,0.8); line-height:1.5;">
+Save carregado! Pronto para a próxima etapa do jogo.
+</p>
+
+<button type="button" id="btn-back-to-title" class="rpg-btn" style="width:100%; padding:10px; font-size:11px;">
+← VOLTAR À TELA INICIAL
+</button>
+</div>
+</div>
+</section>
+
+<div id="rotate-prompt">
+<div class="rpg-panel modal-pop" style="max-width:300px; width:100%; padding:20px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+<span style="font-size:24px; color:#fcd34d;">↻</span>
+<h2 style="margin:0; font-size:13px; color:#fcd34d; line-height:1.5;">GIRE A TELA PARA O LADO</h2>
+<p style="margin:0; font-size:10px; color:rgba(254,243,199,0.9); line-height:1.6;">
+Para jogar Nifft Quest no modo paisagem, vire o aparelho na horizontal.
+</p>
+</div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+const STORAGE_KEYS = {
+SETTINGS: 'nifft_quest_settings_v1',
+SAVES: 'nifft_quest_saves_v1'
+};
+
+const BG_THEMES = [
+{ id: 0, name: 'VALE ENSOLARADO' },
+{ id: 1, name: 'ENTARDECER DOURADO' },
+{ id: 2, name: 'NOITE ESTRELADA' }
+ ];
+
+const GameState = {
+settings: {
+bgIndex: 0,
+musicVolume: 0.7,
+sfxVolume: 0.8,
+muted: false
+},
+saves: [null, null, null],
+focusedMenuIndex: 0,
+pendingDeleteSlot: null
+};
+
+/**
+* Carrega configurações e slots salvos do localStorage.
+*/
+function loadFromStorage() {
+try {
+const rawSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+if (rawSettings) {
+GameState.settings = Object.assign({}, GameState.settings, JSON.parse(rawSettings));
+}
+const rawSaves = localStorage.getItem(STORAGE_KEYS.SAVES);
+if (rawSaves) {
+const parsedSaves = JSON.parse(rawSaves);
+if (Array.isArray(parsedSaves) && parsedSaves.length === 3) {
+GameState.saves = parsedSaves;
+}
+}
+} catch (_err) {
+// Ignora falhas de acesso ao armazenamento em ambientes restritos
+}
+}
+
+/**
+* Persiste as configurações atuais no localStorage.
+*/
+function saveSettingsToStorage() {
+try {
+localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(GameState.settings));
+} catch (_err) {
+// Ignora falhas de escrita
+}
+}
+
+/**
+* Persiste os 3 slots de save no localStorage.
+*/
+function saveSlotsToStorage() {
+try {
+localStorage.setItem(STORAGE_KEYS.SAVES, JSON.stringify(GameState.saves));
+} catch (_err) {
+// Ignora falhas de escrita
+}
+}
+
+const SoundEngine = {
+ctx: null,
+musicTimer: null,
+step: 0,
+isPlayingMusic: false,
+melody: [
+261.63, 329.63, 392.00, 523.25,
+493.88, 392.00, 329.63, 293.66,
+261.63, 329.63, 392.00, 440.00,
+392.00, 329.63, 293.66, 246.94
+ ],
+
+/**
+* Inicializa ou retoma o AudioContext sob demanda.
+*/
+init() {
+try {
+if (!this.ctx) {
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+if (AudioCtx) {
+this.ctx = new AudioCtx();
+}
+}
+if (this.ctx && this.ctx.state === 'suspended') {
+this.ctx.resume().catch(function () {});
+}
+} catch (_err) {
+// Sem suporte a Web Audio
+}
+},
+
+/**
+* Inicia o loop de música tema caso ainda não esteja ativo.
+*/
+startMusic() {
+this.init();
+if (this.isPlayingMusic || !this.ctx) return;
+this.isPlayingMusic = true;
+
+const self = this;
+this.musicTimer = setInterval(function () {
+if (GameState.settings.muted || GameState.settings.musicVolume <= 0.01) return;
+if (!self.ctx || self.ctx.state !== 'running') return;
+const freq = self.melody[self.step % self.melody.length];
+self.step += 1;
+self.playTone(freq, 0.24, 'triangle', GameState.settings.musicVolume * 0.16);
+}, 300);
+},
+
+/**
+* Toca uma nota sintetizada simples.
+* @param {number} freq
+* @param {number} duration
+* @param {'square'|'triangle'|'sine'|'sawtooth'} type
+* @param {number} volume
+*/
+playTone(freq, duration, type, volume) {
+if (!this.ctx || GameState.settings.muted || volume <= 0.001) return;
+try {
+const now = this.ctx.currentTime;
+const osc = this.ctx.createOscillator();
+const gain = this.ctx.createGain();
+osc.type = type || 'square';
+osc.frequency.setValueAtTime(freq, now);
+gain.gain.setValueAtTime(volume, now);
+gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+osc.connect(gain);
+gain.connect(this.ctx.destination);
+osc.start(now);
+osc.stop(now + duration);
+} catch (_err) {
+// Falha ao tocar nota
+}
+},
+
+playMove() {
+this.init();
+this.playTone(540, 0.06, 'square', GameState.settings.sfxVolume * 0.14);
+},
+
+playConfirm() {
+this.init();
+const vol = GameState.settings.sfxVolume * 0.18;
+this.playTone(587.33, 0.07, 'square', vol);
+const self = this;
+setTimeout(function () {
+self.playTone(880.00, 0.14, 'square', vol);
+}, 65);
+},
+
+playCancel() {
+this.init();
+const vol = GameState.settings.sfxVolume * 0.16;
+this.playTone(440.00, 0.07, 'square', vol);
+const self = this;
+setTimeout(function () {
+self.playTone(311.13, 0.13, 'square', vol);
+}, 65);
+}
+};
+
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+const viewportEl = document.getElementById('landscape-root');
+
+let worldW = 480;
+let worldH = 270;
+const PIXEL_SCALE = 3;
+
+/**
+* Ajusta a resolução lógica do canvas para manter o efeito pixelado nítido.
+*/
+function resizeCanvas() {
+const rect = viewportEl.getBoundingClientRect();
+const visualW = Math.max(1, rect.width || window.innerWidth);
+const visualH = Math.max(1, rect.height || window.innerHeight);
+
+worldW = Math.max(320, Math.floor(visualW / PIXEL_SCALE));
+worldH = Math.max(180, Math.floor(visualH / PIXEL_SCALE));
+canvas.width = worldW;
+canvas.height = worldH;
+}
+
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', function () {
+setTimeout(resizeCanvas, 120);
+});
+resizeCanvas();
+
+const SPRITES = {
+knight: [
+'..CC....CC..',
+'.CBBC..CBBC.',
+'.CBBCCCCBBC.',
+'.CDDDDDDDDC.',
+'.CDPPDDPPDC.',
+'.CDDDDDDDDC.',
+'RRRRRRRRRRRR',
+'RRRRRRRRRRRR',
+'RRDDDDDDDDRR',
+'RBDDDDDDDDBR',
+'.RDDDDDDDDR.',
+'..DD....DD..'
+ ],
+slime: [
+'...GGGG...',
+'..GGGGGG..',
+'.GGGGGGGG.',
+'GGWGGGGWGG',
+'GGBBGGGBBG',
+'GGGGGGGGGG',
+'.GGGGGGGG.'
+ ],
+chest: [
+'.YYYYYYYY.',
+'YMMMMMMMMY',
+'YMMYYYYMMY',
+'YYYYWWYYYY',
+'YMMYYYYMMY',
+'YMMMMMMMMY',
+'.YYYYYYYY.'
+ ],
+coin: [
+'..YY..',
+'.YWWY.',
+'YWYYWY',
+'YWYYWY',
+'.YWWY.',
+'..YY..'
+ ],
+cloud: [
+'....WWWWWW......',
+'..WWWWWWWWWW....',
+'.WWWWWWWWWWWWWW.',
+'WWWWWWWWWWWWWWWW'
+ ]
+};
+
+const PALETTE = {
+C: '#1c1b29',
+B: '#5bc0eb',
+D: '#4a5568',
+P: '#d946ef',
+R: '#b91c1c',
+G: '#4ade80',
+W: '#ffffff',
+Y: '#facc15',
+M: '#92400e'
+};
+
+/**
+* Desenha um sprite matricial em pixel art no canvas principal.
+* @param {string[]} sprite
+* @param {number} x
+* @param {number} y
+* @param {number} scale
+* @param {Record<string, string>|null} customMap
+*/
+function drawPixelSprite(sprite, x, y, scale, customMap) {
+const s = scale || 2;
+const rx = Math.round(x);
+const ry = Math.round(y);
+for (let row = 0; row < sprite.length; row++) {
+const line = sprite[row];
+for (let col = 0; col < line.length; col++) {
+const ch = line[col];
+if (ch === '.') continue;
+ctx.fillStyle = (customMap && customMap[ch]) ? customMap[ch] : (PALETTE[ch] || '#fff');
+ctx.fillRect(rx + col * s, ry + row * s, s, s);
+}
+}
+}
+
+/**
+* Renderiza o cavaleiro na tela de prévia do save.
+*/
+function drawHeroPreview() {
+const pCanvas = document.getElementById('hero-preview-canvas');
+const pCtx = pCanvas.getContext('2d');
+pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+const s = 6;
+SPRITES.knight.forEach(function (line, r) {
+for (let c = 0; c < line.length; c++) {
+const ch = line[c];
+if (ch === '.') continue;
+pCtx.fillStyle = PALETTE[ch] || '#fff';
+pCtx.fillRect(12 + c * s, 12 + r * s, s, s);
+}
+});
+}
+
+const clouds = [
+{ x: 40, y: 24, speed: 0.08, scale: 2 },
+{ x: 180, y: 42, speed: 0.05, scale: 3 },
+{ x: 340, y: 18, speed: 0.07, scale: 2 }
+ ];
+
+const birds = [
+{ x: 90, y: 55, speed: 0.35, offset: 0 },
+{ x: 110, y: 62, speed: 0.35, offset: 1.5 }
+ ];
+
+/**
+* Desenha o cenário animado de acordo com o tema selecionado.
+* @param {number} timestamp
+*/
+function drawStardewScene(timestamp) {
+const t = timestamp || 0;
+const themeId = GameState.settings.bgIndex;
+const horizonY = Math.floor(worldH * 0.62);
+
+const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+if (themeId === 0) {
+skyGrad.addColorStop(0, '#38bdf8');
+skyGrad.addColorStop(0.65, '#7dd3fc');
+skyGrad.addColorStop(1, '#e0f2fe');
+} else if (themeId === 1) {
+skyGrad.addColorStop(0, '#7c2d12');
+skyGrad.addColorStop(0.5, '#ea580c');
+skyGrad.addColorStop(1, '#fde047');
+} else {
+skyGrad.addColorStop(0, '#0f172a');
+skyGrad.addColorStop(0.65, '#1e1b4b');
+skyGrad.addColorStop(1, '#312e81');
+}
+ctx.fillStyle = skyGrad;
+ctx.fillRect(0, 0, worldW, horizonY);
+
+if (themeId === 0) {
+ctx.fillStyle = '#fef08a';
+ctx.fillRect(worldW - 65, 22, 22, 22);
+ctx.fillStyle = '#fde047';
+ctx.fillRect(worldW - 62, 25, 16, 16);
+} else if (themeId === 1) {
+ctx.fillStyle = '#fef08a';
+ctx.fillRect(Math.floor(worldW * 0.5) - 16, horizonY - 26, 32, 32);
+} else {
+ctx.fillStyle = '#f8fafc';
+ctx.fillRect(worldW - 60, 22, 16, 16);
+for (let i = 0; i < 24; i++) {
+const sx = (i * 67) % worldW;
+const sy = (i * 29) % Math.max(10, horizonY - 25);
+if (Math.sin(t * 0.004 + i) > -0.3) {
+ctx.fillStyle = '#fef9c3';
+ctx.fillRect(sx, sy, 2, 2);
+}
+}
+}
+
+clouds.forEach(function (c) {
+c.x += c.speed;
+if (c.x > worldW + 40) c.x = -50;
+const cloudColor = themeId === 1 ? '#fed7aa' : (themeId === 2 ? '#475569' : '#ffffff');
+drawPixelSprite(SPRITES.cloud, c.x, c.y, c.scale, { W: cloudColor });
+});
+
+birds.forEach(function (b) {
+b.x += b.speed;
+if (b.x > worldW + 20) b.x = -20;
+const flap = Math.sin(t * 0.015 + b.offset) > 0 ? -2 : 1;
+ctx.fillStyle = themeId === 2 ? '#cbd5e1' : '#1e293b';
+ctx.fillRect(Math.round(b.x), Math.round(b.y), 2, 2);
+ctx.fillRect(Math.round(b.x) - 2, Math.round(b.y) + flap, 2, 1);
+ctx.fillRect(Math.round(b.x) + 2, Math.round(b.y) + flap, 2, 1);
+});
+
+const farHillColor = themeId === 0 ? '#60a5fa' : (themeId === 1 ? '#9a3412' : '#1e293b');
+const midHillColor = themeId === 0 ? '#3b82f6' : (themeId === 1 ? '#7c2d12' : '#0f172a');
+
+ctx.fillStyle = farHillColor;
+for (let x = 0; x < worldW; x += 6) {
+const h = Math.floor(Math.sin(x * 0.025) * 18 + Math.cos(x * 0.06) * 10 + 34);
+ctx.fillRect(x, horizonY - h, 6, h);
+}
+
+ctx.fillStyle = midHillColor;
+for (let x = 0; x < worldW; x += 6) {
+const h = Math.floor(Math.cos(x * 0.03 + 1.2) * 14 + Math.sin(x * 0.07) * 8 + 22);
+ctx.fillRect(x, horizonY - h, 6, h);
+}
+
+const grassMain = themeId === 0 ? '#4ade80' : (themeId === 1 ? '#84cc16' : '#15803d');
+const grassShade = themeId === 0 ? '#22c55e' : (themeId === 1 ? '#65a30d' : '#166534');
+const pathColor = themeId === 0 ? '#fde68a' : (themeId === 1 ? '#fcd34d' : '#78716c');
+
+ctx.fillStyle = grassMain;
+ctx.fillRect(0, horizonY, worldW, worldH - horizonY);
+
+ctx.fillStyle = grassShade;
+for (let y = horizonY + 8; y < worldH; y += 16) {
+ctx.fillRect(0, y, worldW, 4);
+}
+
+ctx.fillStyle = pathColor;
+ctx.fillRect(Math.floor(worldW * 0.42), horizonY + 14, Math.floor(worldW * 0.16), worldH - horizonY);
+
+const flowerColors = ['#fef08a', '#f472b6', '#ffffff', '#fb923c'];
+for (let i = 0; i < 18; i++) {
+const fx = (i * 53 + 15) % worldW;
+const fy = horizonY + 10 + ((i * 29) % Math.max(20, worldH - horizonY - 16));
+if (fx > worldW * 0.40 && fx < worldW * 0.60) continue;
+ctx.fillStyle = flowerColors[i % flowerColors.length];
+ctx.fillRect(fx, fy, 2, 2);
+}
+
+const treePositions = [18, 52, worldW - 44, worldW - 78];
+treePositions.forEach(function (tx, idx) {
+const ty = horizonY - 14 + (idx % 2) * 8;
+ctx.fillStyle = '#78350f';
+ctx.fillRect(tx + 6, ty + 18, 4, 8);
+ctx.fillStyle = themeId === 2 ? '#064e3b' : '#15803d';
+ctx.fillRect(tx, ty + 12, 16, 7);
+ctx.fillStyle = themeId === 2 ? '#065f46' : '#16a34a';
+ctx.fillRect(tx + 2, ty + 6, 12, 7);
+ctx.fillStyle = themeId === 2 ? '#047857' : '#22c55e';
+ctx.fillRect(tx + 4, ty, 8, 7);
+});
+
+const bounce = Math.abs(Math.sin(t * 0.004)) * 3;
+const slimeBounce = Math.abs(Math.sin(t * 0.006)) * 5;
+const coinFloat = Math.sin(t * 0.005) * 3;
+
+drawPixelSprite(SPRITES.knight, worldW * 0.24, horizonY + 14 - bounce, 2, null);
+drawPixelSprite(SPRITES.chest, worldW * 0.72, horizonY + 20, 2, null);
+drawPixelSprite(SPRITES.coin, worldW * 0.74, horizonY + 4 + coinFloat, 2, null);
+drawPixelSprite(SPRITES.slime, worldW * 0.64, horizonY + 28 - slimeBounce, 2, null);
+drawPixelSprite(SPRITES.slime, worldW * 0.34, horizonY + 34 - Math.abs(Math.cos(t * 0.005)) * 4, 2, { G: '#38bdf8' });
+}
+
+/**
+* Loop principal de renderização do fundo.
+* @param {number} timestamp
+*/
+function animate(timestamp) {
+ctx.clearRect(0, 0, worldW, worldH);
+drawStardewScene(timestamp);
+requestAnimationFrame(animate);
+}
+
+const bgBadge = document.getElementById('bg-badge');
+const quickAudioBtn = document.getElementById('quick-audio-btn');
+const audioStatusText = document.getElementById('audio-status-text');
+const audioStatusIcon = document.getElementById('audio-status-icon');
+
+const mainNavButtons = Array.from(document.querySelectorAll('#main-nav button'));
+const btnPlay = document.getElementById('btn-play');
+const btnChangeBg = document.getElementById('btn-change-bg');
+const btnSettings = document.getElementById('btn-settings');
+
+const savesModal = document.getElementById('saves-modal');
+const slotsContainer = document.getElementById('slots-container');
+const btnCloseSaves = document.getElementById('btn-close-saves');
+
+const settingsModal = document.getElementById('settings-modal');
+const musicSlider = document.getElementById('music-slider');
+const musicValue = document.getElementById('music-value');
+const sfxSlider = document.getElementById('sfx-slider');
+const sfxValue = document.getElementById('sfx-value');
+const btnTestSfx = document.getElementById('btn-test-sfx');
+const btnCloseSettings = document.getElementById('btn-close-settings');
+
+const confirmDeleteModal = document.getElementById('confirm-delete-modal');
+const confirmDeleteText = document.getElementById('confirm-delete-text');
+const btnCancelDelete = document.getElementById('btn-cancel-delete');
+const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+
+const stagePreviewScreen = document.getElementById('stage-preview-screen');
+const btnBackToTitle = document.getElementById('btn-back-to-title');
+
+function updateBackgroundBadge() {
+const theme = BG_THEMES[GameState.settings.bgIndex] || BG_THEMES[0];
+bgBadge.textContent = 'CENARIO: ' + theme.name;
+}
+
+function updateAudioUI() {
+const isMuted = GameState.settings.muted || (GameState.settings.musicVolume === 0 && GameState.settings.sfxVolume === 0);
+audioStatusText.textContent = isMuted ? 'SOM: OFF' : 'SOM: ON';
+audioStatusIcon.textContent = isMuted ? '✕' : '♪';
+
+const mPct = Math.round(GameState.settings.musicVolume * 100);
+const sPct = Math.round(GameState.settings.sfxVolume * 100);
+musicSlider.value = String(mPct);
+musicValue.textContent = String(mPct) + '%';
+sfxSlider.value = String(sPct);
+sfxValue.textContent = String(sPct) + '%';
+}
+
+/**
+* Atualiza o destaque visual do botão ativo no menu principal.
+* @param {number} index
+*/
+function setMenuFocus(index) {
+GameState.focusedMenuIndex = (index + mainNavButtons.length) % mainNavButtons.length;
+mainNavButtons.forEach(function (btn, idx) {
+btn.classList.toggle('active-focus', idx === GameState.focusedMenuIndex);
+});
+}
+
+/**
+* Cria um elemento com atributos e texto de forma segura.
+* @param {string} tag
+* @param {string} className
+* @param {string} cssText
+* @param {string} text
+* @returns {HTMLElement}
+*/
+function createEl(tag, className, cssText, text) {
+const el = document.createElement(tag);
+if (className) el.className = className;
+if (cssText) el.style.cssText = cssText;
+if (typeof text === 'string') el.textContent = text;
+return el;
+}
+
+/**
+* Renderiza os 3 slots de save dentro do modal usando DOM explícito.
+*/
+function renderSaveSlots() {
+slotsContainer.innerHTML = '';
+
+for (let i = 0; i < 3; i++) {
+const saveData = GameState.saves[i];
+const card = createEl(
+'div',
+'',
+'background:rgba(0,0,0,0.4); border:2px solid rgba(146,64,14,0.8); border-radius:4px; padding:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;',
+''
+);
+
+if (!saveData) {
+const infoCol = createEl('div', '', 'display:flex; flex-direction:column; gap:4px;', '');
+infoCol.appendChild(createEl('span', '', 'font-size:11px; color:#fcd34d;', 'SLOT ' + String(i + 1)));
+infoCol.appendChild(createEl('span', '', 'font-size:9px; color:rgba(254,243,199,0.65);', 'ESPAÇO VAZIO'));
+
+const newBtn = createEl('button', 'rpg-btn', 'padding:8px 12px; font-size:10px;', '+ NOVO JOGO');
+newBtn.type = 'button';
+newBtn.dataset.action = 'new';
+newBtn.dataset.slot = String(i);
+
+card.appendChild(infoCol);
+card.appendChild(newBtn);
+} else {
+const hpPct = Math.max(0, Math.min(100, Math.round((saveData.hp / saveData.maxHp) * 100)));
+
+const infoCol = createEl('div', '', 'display:flex; flex-direction:column; gap:6px; flex:1; min-width:0;', '');
+const topRow = createEl('div', '', 'display:flex; align-items:center; justify-content:space-between; gap:8px;', '');
+topRow.appendChild(createEl('span', '', 'font-size:11px; color:#fcd34d;', 'SLOT ' + String(i + 1) + ' - ' + String(saveData.name)));
+topRow.appendChild(createEl('span', '', 'font-size:9px; color:#fde047;', '● ' + String(saveData.coins)));
+
+const hpRow = createEl('div', '', 'display:flex; align-items:center; gap:8px;', '');
+hpRow.appendChild(createEl('span', '', 'font-size:9px; color:#fb7185;', '♥'));
+
+const barOuter = createEl('div', '', 'flex:1; height:10px; background:#1a110d; border:1px solid #b45309; border-radius:2px; overflow:hidden;', '');
+const barInner = createEl('div', '', 'height:100%; background:#f43f5e; width:' + String(hpPct) + '%;', '');
+barOuter.appendChild(barInner);
+
+hpRow.appendChild(barOuter);
+hpRow.appendChild(createEl('span', '', 'font-size:8px; color:rgba(254,243,199,0.85);', String(saveData.hp) + '/' + String(saveData.maxHp)));
+
+infoCol.appendChild(topRow);
+infoCol.appendChild(hpRow);
+
+const actionsCol = createEl('div', '', 'display:flex; align-items:center; gap:8px; flex-shrink:0;', '');
+const loadBtn = createEl('button', 'rpg-btn', 'padding:8px 10px; font-size:10px;', 'JOGAR');
+loadBtn.type = 'button';
+loadBtn.dataset.action = 'load';
+loadBtn.dataset.slot = String(i);
+
+const delBtn = createEl('button', 'rpg-btn rpg-btn-danger', 'padding:8px 10px; font-size:10px;', '✕');
+delBtn.type = 'button';
+delBtn.dataset.action = 'delete';
+delBtn.dataset.slot = String(i);
+delBtn.title = 'Apagar Save';
+
+actionsCol.appendChild(loadBtn);
+actionsCol.appendChild(delBtn);
+
+card.appendChild(infoCol);
+card.appendChild(actionsCol);
+}
+
+slotsContainer.appendChild(card);
+}
+}
+
+/**
+* Cria ou carrega um slot e abre a tela da Fase 1.
+* @param {number} slotIndex
+*/
+function startOrLoadSlot(slotIndex) {
+let save = GameState.saves[slotIndex];
+if (!save) {
+save = {
+name: 'CAVALEIRO',
+hp: 100,
+maxHp: 100,
+coins: 0,
+stage: 'FASE 1 - CLAREIRA'
+};
+GameState.saves[slotIndex] = save;
+saveSlotsToStorage();
+}
+
+document.getElementById('loaded-slot-title').textContent = 'SLOT ' + String(slotIndex + 1);
+document.getElementById('preview-hero-name').textContent = String(save.name);
+document.getElementById('preview-hero-hp').textContent = String(save.hp) + ' / ' + String(save.maxHp);
+document.getElementById('preview-hero-coins').textContent = String(save.coins);
+document.getElementById('preview-hero-stage').textContent = String(save.stage);
+
+drawHeroPreview();
+savesModal.classList.add('hidden');
+stagePreviewScreen.classList.remove('hidden');
+}
+
+function handlePlayClick() {
+SoundEngine.playConfirm();
+renderSaveSlots();
+savesModal.classList.remove('hidden');
+}
+
+function handleChangeBgClick() {
+SoundEngine.playConfirm();
+GameState.settings.bgIndex = (GameState.settings.bgIndex + 1) % BG_THEMES.length;
+updateBackgroundBadge();
+saveSettingsToStorage();
+}
+
+function handleSettingsClick() {
+SoundEngine.playConfirm();
+updateAudioUI();
+settingsModal.classList.remove('hidden');
+}
+
+document.addEventListener('pointerdown', function () {
+SoundEngine.startMusic();
+}, { once: true });
+
+/**
+* Vincula resposta rápida ao toque sem disparar durante rolagem.
+* @param {HTMLElement} el
+* @param {Function} handler
+*/
+function bindFastTap(el, handler) {
+let touchMoved = false;
+el.addEventListener('touchstart', function () {
+touchMoved = false;
+}, { passive: true });
+el.addEventListener('touchmove', function () {
+touchMoved = true;
+}, { passive: true });
+el.addEventListener('touchend', function (e) {
+if (touchMoved) return;
+e.preventDefault();
+handler();
+}, { passive: false });
+}
+
+btnPlay.addEventListener('click', handlePlayClick);
+btnChangeBg.addEventListener('click', handleChangeBgClick);
+btnSettings.addEventListener('click', handleSettingsClick);
+
+bindFastTap(btnPlay, handlePlayClick);
+bindFastTap(btnChangeBg, handleChangeBgClick);
+bindFastTap(btnSettings, handleSettingsClick);
+
+quickAudioBtn.addEventListener('click', function () {
+GameState.settings.muted = !GameState.settings.muted;
+saveSettingsToStorage();
+updateAudioUI();
+if (!GameState.settings.muted) {
+SoundEngine.startMusic();
+SoundEngine.playMove();
+}
+});
+
+slotsContainer.addEventListener('click', function (e) {
+const targetEl = e.target instanceof Element ? e.target : null;
+const btn = targetEl ? targetEl.closest('button') : null;
+if (!btn) return;
+const action = btn.dataset.action;
+const slotIdx = Number(btn.dataset.slot);
+
+if (action === 'new' || action === 'load') {
+SoundEngine.playConfirm();
+startOrLoadSlot(slotIdx);
+} else if (action === 'delete') {
+SoundEngine.playCancel();
+GameState.pendingDeleteSlot = slotIdx;
+confirmDeleteText.textContent = 'Deseja mesmo apagar o progresso do SLOT ' + String(slotIdx + 1) + '?';
+confirmDeleteModal.classList.remove('hidden');
+}
+});
+
+btnCloseSaves.addEventListener('click', function () {
+SoundEngine.playCancel();
+savesModal.classList.add('hidden');
+});
+
+btnCancelDelete.addEventListener('click', function () {
+SoundEngine.playCancel();
+GameState.pendingDeleteSlot = null;
+confirmDeleteModal.classList.add('hidden');
+});
+
+btnConfirmDelete.addEventListener('click', function () {
+if (GameState.pendingDeleteSlot !== null) {
+GameState.saves[GameState.pendingDeleteSlot] = null;
+saveSlotsToStorage();
+renderSaveSlots();
+}
+SoundEngine.playCancel();
+GameState.pendingDeleteSlot = null;
+confirmDeleteModal.classList.add('hidden');
+});
+
+musicSlider.addEventListener('input', function (e) {
+const inputEl = e.target instanceof HTMLInputElement ? e.target : null;
+const val = inputEl ? Number(inputEl.value) / 100 : 0;
+GameState.settings.musicVolume = val;
+if (val > 0) GameState.settings.muted = false;
+updateAudioUI();
+SoundEngine.startMusic();
+});
+
+sfxSlider.addEventListener('input', function (e) {
+const inputEl = e.target instanceof HTMLInputElement ? e.target : null;
+const val = inputEl ? Number(inputEl.value) / 100 : 0;
+GameState.settings.sfxVolume = val;
+if (val > 0) GameState.settings.muted = false;
+updateAudioUI();
+});
+
+sfxSlider.addEventListener('change', function () {
+SoundEngine.playMove();
+});
+
+btnTestSfx.addEventListener('click', function () {
+SoundEngine.playConfirm();
+});
+
+btnCloseSettings.addEventListener('click', function () {
+SoundEngine.playConfirm();
+saveSettingsToStorage();
+settingsModal.classList.add('hidden');
+});
+
+btnBackToTitle.addEventListener('click', function () {
+SoundEngine.playCancel();
+stagePreviewScreen.classList.add('hidden');
+});
+
+window.addEventListener('keydown', function (e) {
+const anyModalOpen = !savesModal.classList.contains('hidden') ||
+!settingsModal.classList.contains('hidden') ||
+!confirmDeleteModal.classList.contains('hidden') ||
+!stagePreviewScreen.classList.contains('hidden');
+
+if (e.key === 'Escape') {
+if (!confirmDeleteModal.classList.contains('hidden')) btnCancelDelete.click();
+else if (!savesModal.classList.contains('hidden')) btnCloseSaves.click();
+else if (!settingsModal.classList.contains('hidden')) btnCloseSettings.click();
+else if (!stagePreviewScreen.classList.contains('hidden')) btnBackToTitle.click();
+return;
+}
+
+if (anyModalOpen) return;
+
+if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+setMenuFocus(GameState.focusedMenuIndex + 1);
+SoundEngine.playMove();
+} else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+setMenuFocus(GameState.focusedMenuIndex - 1);
+SoundEngine.playMove();
+} else if (e.key === 'Enter' || e.key === ' ') {
+if (mainNavButtons[GameState.focusedMenuIndex]) {
+mainNavButtons[GameState.focusedMenuIndex].click();
+}
+}
+});
+
+if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
+window.addEventListener('load', function () {
+navigator.serviceWorker.register('./sw.js?v=2')
+.then(function (reg) { return reg.update(); })
+.catch(function () {});
+});
+}
+
+loadFromStorage();
+updateBackgroundBadge();
+updateAudioUI();
+setMenuFocus(0);
+requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
